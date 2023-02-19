@@ -1,5 +1,6 @@
 package com.thuan.logging.errorLogging;
 
+import com.thuan.logging.config.GlobalMap;
 import com.thuan.logging.entities.ErrorLog;
 import com.thuan.logging.entities.RequestLog;
 import com.thuan.logging.services.ErrorLogService;
@@ -24,46 +25,52 @@ public class ErrorLoggingInterceptor implements HandlerInterceptor {
     private final ErrorLogService errorLogService;
     private final RequestLogService requestLogService;
 
-    ErrorLoggingInterceptor(ErrorLogService errorLogService, RequestLogService requestLogService) {
+    private final GlobalMap globalMap;
+
+    ErrorLoggingInterceptor(ErrorLogService errorLogService, RequestLogService requestLogService, GlobalMap globalMap) {
         this.errorLogService = errorLogService;
         this.requestLogService = requestLogService;
+        this.globalMap = globalMap;
     }
 
     @Override
     public boolean preHandle(HttpServletRequest request,
                              HttpServletResponse response,
                              Object handler) throws Exception {
-        // Guard against Interceptor running twice in same request thread
-        ErrorLog previousErrorLog = (ErrorLog) request.getAttribute(ErrorLog.class.toString());
-        RequestLog previousRequestLog = (RequestLog) request.getAttribute(RequestLog.class.toString());
-        if(previousErrorLog != null || previousRequestLog != null) {
-            return false;
+        String isLogging = GlobalMap.get("logging");
+
+        if(isLogging.equals("true")) {// Guard against Interceptor running twice in same request thread
+            ErrorLog previousErrorLog = (ErrorLog) request.getAttribute(ErrorLog.class.toString());
+            RequestLog previousRequestLog = (RequestLog) request.getAttribute(RequestLog.class.toString());
+            if (previousErrorLog != null || previousRequestLog != null) {
+                return false;
+            }
+
+            request.setAttribute(Constants.REQUEST_START_TIME, System.currentTimeMillis());
+
+            String requestId = UUID.randomUUID().toString();
+
+            // Get header values
+            HttpHeaders httpHeaders = Collections.list(request.getHeaderNames())
+                    .stream()
+                    .collect(Collectors.toMap(
+                            Function.identity(),
+                            h -> Collections.list(request.getHeaders(h)),
+                            (oldValue, newValue) -> newValue,
+                            HttpHeaders::new
+                    ));
+            String headers = JsonUtil.toJson(httpHeaders);
+
+            RequestLog requestLog = new RequestLog();
+            requestLog.setRequestId(requestId);
+            requestLog.setHeaders(StringUtils.truncateMessage(headers, Constants.HEADER_LIMIT));
+
+            ErrorLog errorLog = new ErrorLog();
+            errorLog.setRequestId(requestId);
+
+            request.setAttribute(RequestLog.class.toString(), requestLog);
+            request.setAttribute(ErrorLog.class.toString(), errorLog);
         }
-
-        request.setAttribute(Constants.REQUEST_START_TIME , System.currentTimeMillis());
-
-        String requestId = UUID.randomUUID().toString();
-
-        // Get header values
-        HttpHeaders httpHeaders = Collections.list(request.getHeaderNames())
-                .stream()
-                .collect(Collectors.toMap(
-                        Function.identity(),
-                        h -> Collections.list(request.getHeaders(h)),
-                        (oldValue, newValue) -> newValue,
-                        HttpHeaders::new
-                ));
-        String headers = JsonUtil.toJson(httpHeaders);
-
-        RequestLog requestLog = new RequestLog();
-        requestLog.setRequestId(requestId);
-        requestLog.setHeaders(StringUtils.truncateMessage(headers, Constants.HEADER_LIMIT));
-
-        ErrorLog errorLog = new ErrorLog();
-        errorLog.setRequestId(requestId);
-
-        request.setAttribute(RequestLog.class.toString(), requestLog);
-        request.setAttribute(ErrorLog.class.toString(), errorLog);
 
         return true;
     }
@@ -82,27 +89,30 @@ public class ErrorLoggingInterceptor implements HandlerInterceptor {
                                 HttpServletResponse response,
                                 Object handler,
                                 Exception exception) throws Exception {
-        if(response.getStatus() == 404) {
-            return;
-        }
+        String isLogging = GlobalMap.get("logging");
 
-
-        ErrorLog errorLog = (ErrorLog) request.getAttribute(ErrorLog.class.toString());
-        RequestLog requestLog = (RequestLog) request.getAttribute(RequestLog.class.toString());
-        requestLog.setStatus(String.valueOf(response.getStatus()));
-
-        try {
-            if(errorLog.isHasThrown()) {
-                errorLogService.save(errorLog);
+        if(isLogging.equals("true")) {
+            if(response.getStatus() == 404) {
+                return;
             }
 
-            long completionTime = System.currentTimeMillis() - (long) request.getAttribute(Constants.REQUEST_START_TIME);
-            requestLog.setCompletionTime(completionTime);
+            ErrorLog errorLog = (ErrorLog) request.getAttribute(ErrorLog.class.toString());
+            RequestLog requestLog = (RequestLog) request.getAttribute(RequestLog.class.toString());
+            requestLog.setStatus(String.valueOf(response.getStatus()));
 
-            requestLogService.save(requestLog);
-        } catch (Throwable t) {
-            // TODO
-            System.out.println("TODO for handling repository errors : " + t);
+            try {
+                if(errorLog.isHasThrown()) {
+                    errorLogService.save(errorLog);
+                }
+
+                long completionTime = System.currentTimeMillis() - (long) request.getAttribute(Constants.REQUEST_START_TIME);
+                requestLog.setCompletionTime(completionTime);
+
+                requestLogService.save(requestLog);
+            } catch (Throwable t) {
+                // TODO
+                System.out.println("TODO for handling repository errors : " + t);
+            }
         }
     }
 }

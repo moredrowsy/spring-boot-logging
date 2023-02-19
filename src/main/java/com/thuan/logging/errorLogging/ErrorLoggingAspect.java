@@ -1,5 +1,6 @@
 package com.thuan.logging.errorLogging;
 
+import com.thuan.logging.config.GlobalMap;
 import com.thuan.logging.entities.ErrorLog;
 import com.thuan.logging.entities.RequestLog;
 import com.thuan.logging.util.Constants;
@@ -37,70 +38,78 @@ public class ErrorLoggingAspect {
 
     @Before("restMappings()")
     public void logBefore(JoinPoint joinPoint) throws Throwable {
-        RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
-        RequestLog requestLog = null;
+        String isLogging = GlobalMap.get("logging");
 
-        if(requestAttributes != null) {
-            requestLog = (RequestLog) requestAttributes.getAttribute(RequestLog.class.toString(), RequestAttributes.SCOPE_REQUEST);
-        }
+        if(isLogging.equals("true")) {
+            RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
+            RequestLog requestLog = null;
 
-        if(requestLog != null) {
-            // Get request info
-            String requestURI = getRequestURI();
+            if(requestAttributes != null) {
+                requestLog = (RequestLog) requestAttributes.getAttribute(RequestLog.class.toString(), RequestAttributes.SCOPE_REQUEST);
+            }
 
-            // Get request arguments
-            MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
-            String className = methodSignature.getDeclaringTypeName();
-            String shortClassName = getShortClassName(className);
-            String methodName = methodSignature.getName();
-            String arguments = getArguments(joinPoint);
+            if(requestLog != null) {
+                // Get request info
+                String requestURI = getRequestURI();
 
-            requestLog.setUri(requestURI);
-            requestLog.setClassName(shortClassName);
-            requestLog.setMethodName(methodName);
-            requestLog.setArgs(StringUtils.truncateMessage(arguments, Constants.ARGS_LIMIT));
+                // Get request arguments
+                MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
+                String className = methodSignature.getDeclaringTypeName();
+                String shortClassName = getShortClassName(className);
+                String methodName = methodSignature.getName();
+                String arguments = getArguments(joinPoint);
+
+                requestLog.setUri(requestURI);
+                requestLog.setClassName(shortClassName);
+                requestLog.setMethodName(methodName);
+                requestLog.setArgs(StringUtils.truncateMessage(arguments, Constants.ARGS_LIMIT));
+            }
         }
     }
 
     @AfterThrowing(pointcut = "errorLoggingPointcut()", throwing = "t")
     public void logAfterThrowing(JoinPoint joinPoint, Throwable t) {
-        RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
+        String isLogging = GlobalMap.get("logging");
 
-        if(requestAttributes != null) {
-            ErrorLog errorLog = (ErrorLog) requestAttributes.getAttribute(ErrorLog.class.toString(), RequestAttributes.SCOPE_REQUEST);
+        if(isLogging.equals("true")) {
+            RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
 
-            if(errorLog != null && !errorLog.isHasThrown()) {
-                // Mark the originator of exception
-                errorLog.setHasThrown(true);
+            if(requestAttributes != null) {
+                ErrorLog errorLog = (ErrorLog) requestAttributes.getAttribute(ErrorLog.class.toString(), RequestAttributes.SCOPE_REQUEST);
 
-                // Method arguments
-                String arguments = getArguments(joinPoint);
+                if(errorLog != null && !errorLog.isHasThrown()) {
+                    // Mark the originator of exception
+                    errorLog.setHasThrown(true);
 
-                MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
-                Method method = methodSignature.getMethod();
+                    // Method arguments
+                    String arguments = getArguments(joinPoint);
 
-                // @ErrorLogging type
-                ErrorLogging methodErrorLogging = method.getAnnotation(ErrorLogging.class);
-                String type = methodErrorLogging.type();
+                    MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
+                    Method method = methodSignature.getMethod();
 
-                // Error info
-                String className = methodSignature.getDeclaringTypeName();
-                String shortClassName = getShortClassName(className);
-                String methodName = methodSignature.getName();
-                String errorMessage = t.getMessage() != null ? t.getMessage() : "NULL";
-                String exceptionClass = getExceptionName(t);
-                String firstStackTrace = getFirstStackTrace(t);
+                    // @ErrorLogging type
+                    ErrorLogging methodErrorLogging = method.getAnnotation(ErrorLogging.class);
+                    String type = methodErrorLogging.type();
 
-                errorLog.setClassName(shortClassName);
-                errorLog.setMethodName(methodName);
-                errorLog.setArgs(StringUtils.truncateMessage(arguments, Constants.ARGS_LIMIT));
-                errorLog.setExceptionClass(exceptionClass);
-                errorLog.setMessage(StringUtils.truncateMessage(errorMessage, Constants.MSG_LIMIT));
-                errorLog.setFirstStack(StringUtils.truncateMessage(firstStackTrace, Constants.MSG_LIMIT));
+                    // Error info
+                    String className = methodSignature.getDeclaringTypeName();
+                    String shortClassName = getShortClassName(className);
+                    String methodName = methodSignature.getName();
+                    String errorMessage = t.getMessage() != null ? t.getMessage() : "NULL";
+                    String exceptionClass = getExceptionName(t);
+                    String firstStackTrace = getFirstStackTrace(t);
+
+                    errorLog.setClassName(shortClassName);
+                    errorLog.setMethodName(methodName);
+                    errorLog.setArgs(StringUtils.truncateMessage(arguments, Constants.ARGS_LIMIT));
+                    errorLog.setExceptionClass(exceptionClass);
+                    errorLog.setMessage(StringUtils.truncateMessage(errorMessage, Constants.MSG_LIMIT));
+                    errorLog.setFirstStack(StringUtils.truncateMessage(firstStackTrace, Constants.MSG_LIMIT));
+                }
+            } else {
+                // TODO Handle null pointer for request attributes
+                System.out.println("Request attributes is null!");
             }
-        } else {
-            // TODO Handle null pointer for request attributes
-            System.out.println("Request attributes is null!");
         }
     }
 
