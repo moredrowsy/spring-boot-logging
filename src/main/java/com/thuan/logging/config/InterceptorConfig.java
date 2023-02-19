@@ -23,10 +23,10 @@ public class InterceptorConfig implements WebMvcConfigurer {
     }
 
     // Can specific interceptor order
-//    @Override
-//    public void addInterceptors(InterceptorRegistry registry) {
-//        registry.addInterceptor( new LogInterceptor() ).order(1);
-//        registry.addInterceptor( new AuthenticationInterceptor() ).order(2);
-//    }
+    //@Override
+    //public void addInterceptors(InterceptorRegistry registry) {
+    //    registry.addInterceptor( new LogInterceptor() ).order(1);
+    //    registry.addInterceptor( new AuthenticationInterceptor() ).order(2);
+    //}
 
 }

@@ -5,6 +5,8 @@ import com.thuan.logging.entities.RequestLog;
 import com.thuan.logging.services.ErrorLogService;
 import com.thuan.logging.services.RequestLogService;
 import com.thuan.logging.util.Constants;
+import com.thuan.logging.util.JsonUtil;
+import com.thuan.logging.util.StringUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -38,6 +40,10 @@ public class ErrorLoggingInterceptor implements HandlerInterceptor {
             return false;
         }
 
+        request.setAttribute(Constants.REQUEST_START_TIME , System.currentTimeMillis());
+
+        String requestId = UUID.randomUUID().toString();
+
         // Get header values
         HttpHeaders httpHeaders = Collections.list(request.getHeaderNames())
                 .stream()
@@ -47,14 +53,15 @@ public class ErrorLoggingInterceptor implements HandlerInterceptor {
                         (oldValue, newValue) -> newValue,
                         HttpHeaders::new
                 ));
+        String headers = JsonUtil.toJson(httpHeaders);
 
-        String requestId = UUID.randomUUID().toString();
         RequestLog requestLog = new RequestLog();
         requestLog.setRequestId(requestId);
+        requestLog.setHeaders(StringUtils.truncateMessage(headers, Constants.HEADER_LIMIT));
+
         ErrorLog errorLog = new ErrorLog();
         errorLog.setRequestId(requestId);
 
-        request.setAttribute(Constants.REQUEST_START_TIME , System.currentTimeMillis());
         request.setAttribute(RequestLog.class.toString(), requestLog);
         request.setAttribute(ErrorLog.class.toString(), errorLog);
 
@@ -75,21 +82,27 @@ public class ErrorLoggingInterceptor implements HandlerInterceptor {
                                 HttpServletResponse response,
                                 Object handler,
                                 Exception exception) throws Exception {
-        long completionTime = System.currentTimeMillis() - (long) request.getAttribute(Constants.REQUEST_START_TIME);
+        if(response.getStatus() == 404) {
+            return;
+        }
+
 
         ErrorLog errorLog = (ErrorLog) request.getAttribute(ErrorLog.class.toString());
         RequestLog requestLog = (RequestLog) request.getAttribute(RequestLog.class.toString());
         requestLog.setStatus(String.valueOf(response.getStatus()));
-        requestLog.setCompletionTime(completionTime);
 
         try {
             if(errorLog.isHasThrown()) {
                 errorLogService.save(errorLog);
             }
+
+            long completionTime = System.currentTimeMillis() - (long) request.getAttribute(Constants.REQUEST_START_TIME);
+            requestLog.setCompletionTime(completionTime);
+
             requestLogService.save(requestLog);
-        } catch (Exception e) {
+        } catch (Throwable t) {
             // TODO
-            System.out.println("TODO for handling repository errors : " + e);
+            System.out.println("TODO for handling repository errors : " + t);
         }
     }
 }

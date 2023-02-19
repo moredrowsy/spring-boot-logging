@@ -4,11 +4,11 @@ import com.thuan.logging.entities.ErrorLog;
 import com.thuan.logging.entities.RequestLog;
 import com.thuan.logging.util.Constants;
 import com.thuan.logging.util.JsonUtil;
+import com.thuan.logging.util.StringUtils;
 import org.aspectj.lang.JoinPoint;
-import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.AfterThrowing;
-import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
 import org.aspectj.lang.annotation.Pointcut;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.stereotype.Component;
@@ -22,7 +22,6 @@ import java.util.Objects;
 @Aspect
 @Component
 public class ErrorLoggingAspect {
-    private static final int MSG_LIMIT = 255;
 
     @Pointcut("@annotation(com.thuan.logging.errorLogging.ErrorLogging)")
     public void errorLoggingPointcut() {}
@@ -36,10 +35,8 @@ public class ErrorLoggingAspect {
     )
     public void restMappings() {}
 
-    @Around("restMappings()")
-    public void logAroundRestMappings(ProceedingJoinPoint joinPoint) throws Throwable {
-        System.out.println("@Around Before Method");
-
+    @Before("restMappings()")
+    public void logBefore(JoinPoint joinPoint) throws Throwable {
         RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
         RequestLog requestLog = null;
 
@@ -53,28 +50,19 @@ public class ErrorLoggingAspect {
 
             // Get request arguments
             MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
-            String methodName = methodSignature.getDeclaringTypeName();
-            Method method = methodSignature.getMethod();
+            String className = methodSignature.getDeclaringTypeName();
+            String methodName = methodSignature.getName();
             String arguments = getArguments(joinPoint);
 
             requestLog.setUri(requestURI);
-            requestLog.setArgs(arguments);
+            requestLog.setClassName(className);
             requestLog.setMethodName(methodName);
-        }
-
-        try {
-            joinPoint.proceed();
-        } catch (Throwable e) {
-            throw e;
-        } finally {
-            System.out.println("@Around After Method");
+            requestLog.setArgs(StringUtils.truncateMessage(arguments, Constants.ARGS_LIMIT));
         }
     }
 
     @AfterThrowing(pointcut = "errorLoggingPointcut()", throwing = "t")
     public void logAfterThrowing(JoinPoint joinPoint, Throwable t) {
-        System.out.println("@AfterThrowing Method");
-
         RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
 
         if(requestAttributes != null) {
@@ -95,19 +83,21 @@ public class ErrorLoggingAspect {
                 String type = methodErrorLogging.type();
 
                 // Error info
-                String methodName = methodSignature.getDeclaringTypeName();
+                String className = methodSignature.getDeclaringTypeName();
+                String methodName = methodSignature.getName();
                 String errorMessage = t.getMessage() != null ? t.getMessage() : "NULL";
                 String exceptionClass = getExceptionName(t);
                 String firstStackTrace = getFirstStackTrace(t);
 
-                errorLog.setArgs(arguments);
+                errorLog.setClassName(className);
                 errorLog.setMethodName(methodName);
+                errorLog.setArgs(StringUtils.truncateMessage(arguments, Constants.ARGS_LIMIT));
                 errorLog.setExceptionClass(exceptionClass);
-                errorLog.setMessage(truncateMessage(errorMessage));
-                errorLog.setFirstStack(truncateMessage(firstStackTrace));
+                errorLog.setMessage(StringUtils.truncateMessage(errorMessage, Constants.MSG_LIMIT));
+                errorLog.setFirstStack(StringUtils.truncateMessage(firstStackTrace, Constants.MSG_LIMIT));
             }
         } else {
-            // Handle null pointer for request attributes
+            // TODO Handle null pointer for request attributes
             System.out.println("Request attributes is null!");
         }
     }
@@ -154,13 +144,5 @@ public class ErrorLoggingAspect {
             firstStackTrace = t.getStackTrace()[0];
         }
         return firstStackTrace != null ? firstStackTrace.toString() : "null";
-    }
-
-    private static String truncateMessage(String message) {
-        if (message.length() < MSG_LIMIT) {
-            return message;
-        }
-
-        return message.substring(0, MSG_LIMIT-3) + "...";
     }
 }
