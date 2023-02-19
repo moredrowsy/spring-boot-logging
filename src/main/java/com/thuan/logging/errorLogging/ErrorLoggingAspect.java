@@ -51,11 +51,12 @@ public class ErrorLoggingAspect {
             // Get request arguments
             MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
             String className = methodSignature.getDeclaringTypeName();
+            String shortClassName = getShortClassName(className);
             String methodName = methodSignature.getName();
             String arguments = getArguments(joinPoint);
 
             requestLog.setUri(requestURI);
-            requestLog.setClassName(className);
+            requestLog.setClassName(shortClassName);
             requestLog.setMethodName(methodName);
             requestLog.setArgs(StringUtils.truncateMessage(arguments, Constants.ARGS_LIMIT));
         }
@@ -84,12 +85,13 @@ public class ErrorLoggingAspect {
 
                 // Error info
                 String className = methodSignature.getDeclaringTypeName();
+                String shortClassName = getShortClassName(className);
                 String methodName = methodSignature.getName();
                 String errorMessage = t.getMessage() != null ? t.getMessage() : "NULL";
                 String exceptionClass = getExceptionName(t);
                 String firstStackTrace = getFirstStackTrace(t);
 
-                errorLog.setClassName(className);
+                errorLog.setClassName(shortClassName);
                 errorLog.setMethodName(methodName);
                 errorLog.setArgs(StringUtils.truncateMessage(arguments, Constants.ARGS_LIMIT));
                 errorLog.setExceptionClass(exceptionClass);
@@ -130,6 +132,11 @@ public class ErrorLoggingAspect {
         }
         str.append("}");
         return str.toString();
+    }
+
+    private String getShortClassName(String className) {
+        String[] split = className.split("\\.");
+        return split[split.length-1];
     }
 
     private String getExceptionName(Throwable t) {

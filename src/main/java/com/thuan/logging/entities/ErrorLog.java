@@ -19,6 +19,7 @@ public class ErrorLog {
     private String requestId;
     private String className;
     private String methodName;
+    @Column(length = Constants.ARGS_LIMIT)
     private String args;
     private String exceptionClass;
     @Column(length = Constants.MSG_LIMIT)
