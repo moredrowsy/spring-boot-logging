@@ -2,7 +2,6 @@ package com.thuan.logging.entities;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 import javax.persistence.Entity;
@@ -10,7 +9,6 @@ import javax.persistence.Id;
 import javax.persistence.Transient;
 
 @Entity
-@NoArgsConstructor
 @AllArgsConstructor
 @ToString
 @Data
@@ -25,4 +23,8 @@ public class ErrorLog {
 
     @Transient
     private boolean hasThrown;
+
+    public ErrorLog() {
+        this.hasThrown = false;
+    }
 }

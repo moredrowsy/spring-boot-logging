@@ -5,12 +5,16 @@ import com.thuan.logging.entities.RequestLog;
 import com.thuan.logging.services.ErrorLogService;
 import com.thuan.logging.services.RequestLogService;
 import com.thuan.logging.util.Constants;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.Collections;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Component
 public class ErrorLoggingInterceptor implements HandlerInterceptor {
@@ -34,13 +38,21 @@ public class ErrorLoggingInterceptor implements HandlerInterceptor {
             return false;
         }
 
+        // Get header values
+        HttpHeaders httpHeaders = Collections.list(request.getHeaderNames())
+                .stream()
+                .collect(Collectors.toMap(
+                        Function.identity(),
+                        h -> Collections.list(request.getHeaders(h)),
+                        (oldValue, newValue) -> newValue,
+                        HttpHeaders::new
+                ));
 
         String requestId = UUID.randomUUID().toString();
         RequestLog requestLog = new RequestLog();
         requestLog.setRequestId(requestId);
         ErrorLog errorLog = new ErrorLog();
         errorLog.setRequestId(requestId);
-        errorLog.setHasThrown(false);
 
         request.setAttribute(Constants.REQUEST_START_TIME , System.currentTimeMillis());
         request.setAttribute(RequestLog.class.toString(), requestLog);

@@ -1,8 +1,8 @@
 package com.thuan.logging.services;
 
 import com.thuan.logging.entities.Address;
-import com.thuan.logging.errorLogging.ErrorLogging;
 import com.thuan.logging.entities.Student;
+import com.thuan.logging.errorLogging.ErrorLogging;
 import com.thuan.logging.exceptions.StudentException;
 import com.thuan.logging.exceptions.ValidateAddressException;
 import com.thuan.logging.repositories.StudentRepository;
@@ -15,11 +15,11 @@ public class StudentService {
 
     private final StudentRepository studentRepository;
 
-    private final ValidateStuentAddressService validateStuentAddressService;
+    private final ValidateStudentAddressService validateStudentAddressService;
 
-    StudentService(StudentRepository studentRepository, ValidateStuentAddressService validateStuentAddressService) {
+    StudentService(StudentRepository studentRepository, ValidateStudentAddressService validateStudentAddressService) {
         this.studentRepository = studentRepository;
-        this.validateStuentAddressService = validateStuentAddressService;
+        this.validateStudentAddressService = validateStudentAddressService;
     }
 
     @ErrorLogging(type = "GetStudent")
@@ -35,7 +35,7 @@ public class StudentService {
 
     @ErrorLogging(type = "CreateStudentWithAddressValidation")
     public Student createStudentWithAddress(Student student, Address address) throws ValidateAddressException {
-        boolean valid = validateStuentAddressService.isValid(student, address);
+        boolean valid = validateStudentAddressService.isValid(student, address);
         return studentRepository.save(student);
     }
 }

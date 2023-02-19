@@ -87,15 +87,15 @@ public class ErrorLoggingAspect {
                 // Method arguments
                 String arguments = getArguments(joinPoint);
 
-                MethodSignature signature = (MethodSignature) joinPoint.getSignature();
-                Method method = signature.getMethod();
+                MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
+                Method method = methodSignature.getMethod();
 
                 // @ErrorLogging type
                 ErrorLogging methodErrorLogging = method.getAnnotation(ErrorLogging.class);
                 String type = methodErrorLogging.type();
 
                 // Error info
-                String methodName = signature.getDeclaringTypeName();
+                String methodName = methodSignature.getDeclaringTypeName();
                 String errorMessage = t.getMessage() != null ? t.getMessage() : "NULL";
                 String exceptionClass = getExceptionName(t);
                 String firstStackTrace = getFirstStackTrace(t);

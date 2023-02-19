@@ -7,7 +7,7 @@ import com.thuan.logging.exceptions.ValidateAddressException;
 import org.springframework.stereotype.Service;
 
 @Service
-public class ValidateStuentAddressService {
+public class ValidateStudentAddressService {
     @ErrorLogging
     public boolean isValid(Student student, Address address) throws ValidateAddressException {
         throw new ValidateAddressException("My validating exception test");
